@@ -12,14 +12,60 @@ h1 { text-align: center; font-size: 1.4rem; }
 input, select, button { width: 100%; padding: 10px; margin-top: 6px; font-size: 1rem; box-sizing: border-box; }
 button { border: none; border-radius: 8px; background: #222; color: #fff; cursor: pointer; }
 button.secondary { background: #555; }
-/* Estilo para el botón de borrar */
-button.danger { background: #e74c3c; margin-top: 10px; font-size: 0.8rem; padding: 6px; }
+button.danger { background: #e74c3c; margin-top: 8px; font-size: 0.85rem; padding: 8px; }
+
+/* ESTILOS DE ESTADO */
 .venta { border-left: 6px solid; padding-left: 8px; margin-bottom: 8px; }
 .pagado { border-color: #2ecc71; }
 .pendiente { border-color: #e74c3c; }
 .consumo { border-color: #7f8c8d; }
 .small { font-size: 0.85rem; color: #555; }
 #status { text-align: center; font-size: 0.8rem; margin-bottom: 8px; font-weight: bold; }
+
+/* ESTILOS ACORDEÓN SEMANAL */
+details {
+  background: #e0e0e0;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+summary {
+  background: #333;
+  color: white;
+  padding: 12px;
+  cursor: pointer;
+  font-weight: bold;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+summary::after {
+  content: "+"; 
+  position: absolute; 
+  right: 15px; 
+  top: 15px;
+  font-size: 1.2rem;
+}
+details[open] summary::after {
+  content: "-";
+}
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-right: 20px; /* Espacio para el +/- */
+}
+.summary-sub {
+  font-size: 0.85rem;
+  color: #ccc;
+  margin-top: 4px;
+  font-weight: normal;
+}
+.group-content {
+  padding: 10px;
+}
 </style>
 </head>
 
@@ -65,7 +111,6 @@ button.danger { background: #e74c3c; margin-top: 10px; font-size: 0.8rem; paddin
 
 <script>
 /* ================= CONFIG ================= */
-// REEMPLAZA ESTA URL CON LA QUE TE DIO GOOGLE AL IMPLEMENTAR
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbzSFgyicLTAQfa_pkRhLvC4gdIf1x3KiSi1sJZHjr72q5elgqpaFL6p0wNjg1XqLDh5yQ/exec";
 
 /* ================= DATOS ================= */
@@ -84,6 +129,7 @@ function guardarTodo() {
 /* ================= GOOGLE SHEETS ================= */
 async function syncGoogle(venta) {
   const statusDiv = document.getElementById("status");
+  if (!ENDPOINT) return;
   try {
     await fetch(ENDPOINT, {
       method: "POST",
@@ -95,29 +141,28 @@ async function syncGoogle(venta) {
     statusDiv.style.color = "#2ecc71";
     setTimeout(() => statusDiv.textContent = "", 2000);
   } catch (e) {
-    statusDiv.textContent = "Error al sincronizar";
+    statusDiv.textContent = "Error de red";
     statusDiv.style.color = "#e74c3c";
   }
 }
 
-/* ================= PRODUCTOS ================= */
+/* ================= LÓGICA DE NEGOCIO ================= */
 function cargarProductos() {
-  const selectProd = document.getElementById("producto");
-  selectProd.innerHTML = "";
+  const select = document.getElementById("producto");
+  select.innerHTML = "";
   productos.forEach((p, i) => {
     const o = document.createElement("option");
     o.value = i;
     o.textContent = `${p.nombre} ($${p.precio})`;
-    selectProd.appendChild(o);
+    select.appendChild(o);
   });
   actualizarPrecio();
 }
 
 function actualizarPrecio() {
-  const checkConsumo = document.getElementById("consumo");
-  const inputPrecio = document.getElementById("precio");
-  const selectProd = document.getElementById("producto");
-  inputPrecio.value = checkConsumo.checked ? 0 : (productos[selectProd.value]?.precio || 0);
+  const isConsumo = document.getElementById("consumo").checked;
+  const prodIdx = document.getElementById("producto").value;
+  document.getElementById("precio").value = isConsumo ? 0 : (productos[prodIdx]?.precio || 0);
 }
 
 function agregarProducto() {
@@ -130,7 +175,6 @@ function agregarProducto() {
   cargarProductos();
 }
 
-/* ================= CLIENTES ================= */
 function actualizarClientes() {
   const dl = document.getElementById("clientes");
   dl.innerHTML = "";
@@ -141,14 +185,13 @@ function actualizarClientes() {
   });
 }
 
-/* ================= VENTAS ================= */
 function agregarVenta() {
-  const nombreCliente = document.getElementById("cliente").value.trim();
-  if (!nombreCliente) return alert("Falta el nombre");
+  const nom = document.getElementById("cliente").value.trim();
+  if (!nom) return alert("Ingresa un nombre");
 
   const venta = {
     id: crypto.randomUUID(),
-    cliente: nombreCliente,
+    cliente: nom,
     producto: productos[document.getElementById("producto").value].nombre,
     precio: Number(document.getElementById("precio").value),
     estado: document.getElementById("estado").value,
@@ -159,14 +202,13 @@ function agregarVenta() {
   ventas.push(venta);
   syncGoogle(venta);
 
-  if (!clientes.includes(nombreCliente)) {
-    clientes.push(nombreCliente);
+  if (!clientes.includes(nom)) {
+    clientes.push(nom);
     actualizarClientes();
   }
 
   guardarTodo();
   render();
-
   document.getElementById("cliente").value = "";
   document.getElementById("consumo").checked = false;
   actualizarPrecio();
@@ -174,62 +216,119 @@ function agregarVenta() {
 
 function marcarPagado(id) {
   const v = ventas.find(x => x.id === id);
-  if (!v) return;
-  v.estado = "Pagado";
-  syncGoogle(v);
-  guardarTodo();
-  render();
+  if (v) {
+    v.estado = "Pagado";
+    syncGoogle(v);
+    guardarTodo();
+    render();
+  }
 }
 
-// NUEVA FUNCIÓN: BORRAR VENTA
 function borrarVenta(id) {
-  if (confirm("¿Estás seguro de que deseas borrar esta venta? Se eliminará de la lista.")) {
-    const vIndex = ventas.findIndex(x => x.id === id);
-    if (vIndex !== -1) {
-      const ventaEliminada = ventas[vIndex];
-      // Opcional: Avisar a Google que se eliminó (cambiando el estado)
-      ventaEliminada.estado = "ELIMINADO";
-      syncGoogle(ventaEliminada);
-      
-      ventas.splice(vIndex, 1);
+  if (confirm("¿Seguro que quieres borrar esta venta?")) {
+    const idx = ventas.findIndex(x => x.id === id);
+    if (idx !== -1) {
+      const eliminada = {...ventas[idx], estado: "ELIMINADO"};
+      syncGoogle(eliminada);
+      ventas.splice(idx, 1);
       guardarTodo();
       render();
     }
   }
 }
 
-/* ================= RENDER ================= */
+/* ================= LÓGICA DE FECHAS (SEMANAS) ================= */
+function obtenerLunes(fechaStr) {
+  // Creamos la fecha evitando problemas de zona horaria
+  const partes = fechaStr.split('-');
+  const d = new Date(partes[0], partes[1] - 1, partes[2]);
+  
+  const dia = d.getDay(); // 0 es Domingo, 1 Lunes...
+  const diff = d.getDate() - dia + (dia == 0 ? -6 : 1); // Ajustar al lunes
+  
+  const lunes = new Date(d.setDate(diff));
+  return lunes.toISOString().split('T')[0];
+}
+
+function formatearFecha(fechaStr) {
+  const partes = fechaStr.split('-');
+  return `${partes[2]}/${partes[1]}`; // DD/MM
+}
+
+/* ================= RENDERIZADO ================= */
 function render() {
   const fn = document.getElementById("filtroNombre").value.toLowerCase();
   const fe = document.getElementById("filtroEstado").value;
   const lista = document.getElementById("lista");
 
-  const filtradas = ventas.filter(v =>
-    (!fn || v.cliente.toLowerCase().includes(fn)) &&
+  // 1. Filtrar
+  const filtradas = ventas.filter(v => 
+    (!fn || v.cliente.toLowerCase().includes(fn)) && 
     (!fe || v.estado === fe)
   );
 
-  lista.innerHTML = filtradas.map(v => `
-    <div class="card venta ${v.consumo ? "consumo" : v.estado === "Pagado" ? "pagado" : "pendiente"}">
-      <strong>${v.cliente}</strong><br>
-      <span class="small">${v.producto} · $${v.precio}</span><br>
-      <span class="small">${v.estado} · ${v.fecha}</span><br>
-      
-      ${v.estado === "Pendiente" 
-        ? `<button onclick="marcarPagado('${v.id}')">Marcar pagado</button>` 
-        : ""}
-      
-      <button class="danger" onclick="borrarVenta('${v.id}')">Eliminar venta</button>
-    </div>
-  `).join("");
+  // 2. Agrupar por SEMANA (Lunes)
+  const grupos = {};
+  filtradas.forEach(v => {
+    const lunes = obtenerLunes(v.fecha);
+    if (!grupos[lunes]) grupos[lunes] = [];
+    grupos[lunes].push(v);
+  });
+
+  // 3. Ordenar claves (Semanas) de más reciente a más antigua
+  const semanasOrdenadas = Object.keys(grupos).sort().reverse();
+
+  // 4. Generar HTML
+  lista.innerHTML = semanasOrdenadas.map((semana, index) => {
+    const grupoVentas = grupos[semana];
+    
+    // Totales
+    const totalDinero = grupoVentas.reduce((sum, v) => sum + v.precio, 0);
+    const contador = {};
+    grupoVentas.forEach(v => { contador[v.producto] = (contador[v.producto] || 0) + 1; });
+    const resumenProd = Object.entries(contador)
+      .map(([prod, cant]) => `${prod}: ${cant}`)
+      .join(", ");
+
+    // HTML Tarjetas
+    const tarjetas = grupoVentas.map(v => `
+      <div class="card venta ${v.consumo ? "consumo" : v.estado === "Pagado" ? "pagado" : "pendiente"}">
+        <strong>${v.cliente}</strong> <span style="float:right">$${v.precio}</span><br>
+        <span class="small">${v.producto}</span><br>
+        <span class="small">${v.estado} · ${v.fecha}</span><br>
+        ${v.estado === "Pendiente" ? `<button onclick="marcarPagado('${v.id}')">Marcar pagado</button>` : ""}
+        <button class="danger" onclick="borrarVenta('${v.id}')">Borrar venta</button>
+      </div>
+    `).join("");
+
+    // Calcular fecha fin de semana (Sábado) para mostrar en título
+    const fechaLunes = new Date(semana);
+    const fechaSabado = new Date(fechaLunes);
+    fechaSabado.setDate(fechaLunes.getDate() + 5); // +5 días para llegar al sábado
+    
+    // Solo la primera semana (la actual) sale abierta
+    const isOpen = index === 0 ? "open" : "";
+
+    return `
+      <details ${isOpen}>
+        <summary>
+          <div class="summary-header">
+            <span>Semana ${formatearFecha(semana)} al ${fechaSabado.getDate()}/${fechaSabado.getMonth()+1}</span>
+            <span>$${totalDinero}</span>
+          </div>
+          <div class="summary-sub">${resumenProd}</div>
+        </summary>
+        <div class="group-content">
+          ${tarjetas}
+        </div>
+      </details>
+    `;
+  }).join("");
 }
 
-/* ================= EXPORTAR ================= */
 function exportar() {
   let csv = "ID,Cliente,Producto,Precio,Estado,Consumo,Fecha\n";
-  ventas.forEach(v => {
-    csv += `"${v.id}","${v.cliente}","${v.producto}",${v.precio},"${v.estado}",${v.consumo},"${v.fecha}"\n`;
-  });
+  ventas.forEach(v => { csv += `"${v.id}","${v.cliente}","${v.producto}",${v.precio},"${v.estado}",${v.consumo},"${v.fecha}"\n`; });
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -237,14 +336,12 @@ function exportar() {
   a.click();
 }
 
-/* ================= INIT ================= */
+// Iniciar
 document.getElementById("consumo").addEventListener("change", actualizarPrecio);
 document.getElementById("producto").addEventListener("change", actualizarPrecio);
-
 actualizarClientes();
 cargarProductos();
 render();
 </script>
-
 </body>
 </html>
