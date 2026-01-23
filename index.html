@@ -8,16 +8,18 @@
 <style>
 body { font-family: system-ui, sans-serif; background: #f2f2f2; margin: 0; padding: 12px; }
 h1 { text-align: center; font-size: 1.4rem; }
-.card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+.card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.1); position: relative; }
 input, select, button { width: 100%; padding: 10px; margin-top: 6px; font-size: 1rem; box-sizing: border-box; }
 button { border: none; border-radius: 8px; background: #222; color: #fff; cursor: pointer; }
 button.secondary { background: #555; }
+/* Estilo para el botón de borrar */
+button.danger { background: #e74c3c; margin-top: 10px; font-size: 0.8rem; padding: 6px; }
 .venta { border-left: 6px solid; padding-left: 8px; margin-bottom: 8px; }
 .pagado { border-color: #2ecc71; }
 .pendiente { border-color: #e74c3c; }
 .consumo { border-color: #7f8c8d; }
 .small { font-size: 0.85rem; color: #555; }
-#status { text-align: center; font-size: 0.8rem; margin-bottom: 8px; color: #e74c3c; }
+#status { text-align: center; font-size: 0.8rem; margin-bottom: 8px; font-weight: bold; }
 </style>
 </head>
 
@@ -73,7 +75,6 @@ let productos = JSON.parse(localStorage.getItem("productos")) || [
   { nombre: "Score Gorilla", precio: 1500 }
 ];
 
-/* ================= GUARDADO ================= */
 function guardarTodo() {
   localStorage.setItem("ventas", JSON.stringify(ventas));
   localStorage.setItem("clientes", JSON.stringify(clientes));
@@ -82,44 +83,41 @@ function guardarTodo() {
 
 /* ================= GOOGLE SHEETS ================= */
 async function syncGoogle(venta) {
-  if (!ENDPOINT || ENDPOINT.includes("macros/s/")) {
-    const statusDiv = document.getElementById("status");
-    try {
-      // Usamos text/plain para evitar el preflight OPTIONS de CORS
-      await fetch(ENDPOINT, {
-        method: "POST",
-        mode: "no-cors", 
-        body: JSON.stringify(venta),
-        headers: { "Content-Type": "text/plain" }
-      });
-      statusDiv.textContent = "Sincronizado con Google Sheets";
-      statusDiv.style.color = "#2ecc71";
-      setTimeout(() => statusDiv.textContent = "", 3000);
-    } catch (e) {
-      statusDiv.textContent = "Error al sincronizar";
-      console.error(e);
-    }
+  const statusDiv = document.getElementById("status");
+  try {
+    await fetch(ENDPOINT, {
+      method: "POST",
+      mode: "no-cors", 
+      body: JSON.stringify(venta),
+      headers: { "Content-Type": "text/plain" }
+    });
+    statusDiv.textContent = "✓ Sincronizado";
+    statusDiv.style.color = "#2ecc71";
+    setTimeout(() => statusDiv.textContent = "", 2000);
+  } catch (e) {
+    statusDiv.textContent = "Error al sincronizar";
+    statusDiv.style.color = "#e74c3c";
   }
 }
 
 /* ================= PRODUCTOS ================= */
 function cargarProductos() {
-  producto.innerHTML = "";
+  const selectProd = document.getElementById("producto");
+  selectProd.innerHTML = "";
   productos.forEach((p, i) => {
     const o = document.createElement("option");
     o.value = i;
     o.textContent = `${p.nombre} ($${p.precio})`;
-    producto.appendChild(o);
+    selectProd.appendChild(o);
   });
   actualizarPrecio();
 }
 
 function actualizarPrecio() {
-  if (consumo.checked) {
-    precio.value = 0;
-  } else {
-    precio.value = productos[producto.value]?.precio || 0;
-  }
+  const checkConsumo = document.getElementById("consumo");
+  const inputPrecio = document.getElementById("precio");
+  const selectProd = document.getElementById("producto");
+  inputPrecio.value = checkConsumo.checked ? 0 : (productos[selectProd.value]?.precio || 0);
 }
 
 function agregarProducto() {
@@ -134,27 +132,28 @@ function agregarProducto() {
 
 /* ================= CLIENTES ================= */
 function actualizarClientes() {
-  clientesDatalist.innerHTML = "";
+  const dl = document.getElementById("clientes");
+  dl.innerHTML = "";
   clientes.forEach(c => {
     const o = document.createElement("option");
     o.value = c;
-    clientesDatalist.appendChild(o);
+    dl.appendChild(o);
   });
 }
 
 /* ================= VENTAS ================= */
 function agregarVenta() {
-  const nombreCliente = cliente.value.trim();
+  const nombreCliente = document.getElementById("cliente").value.trim();
   if (!nombreCliente) return alert("Falta el nombre");
 
   const venta = {
     id: crypto.randomUUID(),
     cliente: nombreCliente,
-    producto: productos[producto.value].nombre,
-    precio: Number(precio.value),
-    estado: estado.value,
-    consumo: consumo.checked,
-    fecha: new Date().toISOString().split('T')[0] // Formato YYYY-MM-DD
+    producto: productos[document.getElementById("producto").value].nombre,
+    precio: Number(document.getElementById("precio").value),
+    estado: document.getElementById("estado").value,
+    consumo: document.getElementById("consumo").checked,
+    fecha: new Date().toISOString().split('T')[0]
   };
 
   ventas.push(venta);
@@ -168,8 +167,8 @@ function agregarVenta() {
   guardarTodo();
   render();
 
-  cliente.value = "";
-  consumo.checked = false;
+  document.getElementById("cliente").value = "";
+  document.getElementById("consumo").checked = false;
   actualizarPrecio();
 }
 
@@ -182,10 +181,29 @@ function marcarPagado(id) {
   render();
 }
 
+// NUEVA FUNCIÓN: BORRAR VENTA
+function borrarVenta(id) {
+  if (confirm("¿Estás seguro de que deseas borrar esta venta? Se eliminará de la lista.")) {
+    const vIndex = ventas.findIndex(x => x.id === id);
+    if (vIndex !== -1) {
+      const ventaEliminada = ventas[vIndex];
+      // Opcional: Avisar a Google que se eliminó (cambiando el estado)
+      ventaEliminada.estado = "ELIMINADO";
+      syncGoogle(ventaEliminada);
+      
+      ventas.splice(vIndex, 1);
+      guardarTodo();
+      render();
+    }
+  }
+}
+
 /* ================= RENDER ================= */
 function render() {
-  const fn = filtroNombre.value.toLowerCase();
-  const fe = filtroEstado.value;
+  const fn = document.getElementById("filtroNombre").value.toLowerCase();
+  const fe = document.getElementById("filtroEstado").value;
+  const lista = document.getElementById("lista");
+
   const filtradas = ventas.filter(v =>
     (!fn || v.cliente.toLowerCase().includes(fn)) &&
     (!fe || v.estado === fe)
@@ -196,9 +214,12 @@ function render() {
       <strong>${v.cliente}</strong><br>
       <span class="small">${v.producto} · $${v.precio}</span><br>
       <span class="small">${v.estado} · ${v.fecha}</span><br>
-      ${v.estado === "Pendiente"
-        ? `<button onclick="marcarPagado('${v.id}')">Marcar pagado</button>`
+      
+      ${v.estado === "Pendiente" 
+        ? `<button onclick="marcarPagado('${v.id}')">Marcar pagado</button>` 
         : ""}
+      
+      <button class="danger" onclick="borrarVenta('${v.id}')">Eliminar venta</button>
     </div>
   `).join("");
 }
@@ -217,18 +238,8 @@ function exportar() {
 }
 
 /* ================= INIT ================= */
-const cliente = document.getElementById("cliente");
-const producto = document.getElementById("producto");
-const precio = document.getElementById("precio");
-const estado = document.getElementById("estado");
-const consumo = document.getElementById("consumo");
-const filtroNombre = document.getElementById("filtroNombre");
-const filtroEstado = document.getElementById("filtroEstado");
-const lista = document.getElementById("lista");
-const clientesDatalist = document.getElementById("clientes");
-
-consumo.addEventListener("change", actualizarPrecio);
-producto.addEventListener("change", actualizarPrecio);
+document.getElementById("consumo").addEventListener("change", actualizarPrecio);
+document.getElementById("producto").addEventListener("change", actualizarPrecio);
 
 actualizarClientes();
 cargarProductos();
@@ -236,5 +247,4 @@ render();
 </script>
 
 </body>
-
 </html>
