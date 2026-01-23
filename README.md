@@ -5,7 +5,7 @@ https://proyectodekai.github.io/Registro-de-ventas/
 
 Este es un sistema personalizado de registro de ventas diseñado para funcionar de forma rápida en dispositivos móviles, con almacenamiento local y respaldo automático en la nube.
 
-## 🚀 Características Principales
+## Características Principales
 
 * **Persistencia Local:** Los datos se guardan en el navegador (`LocalStorage`), permitiendo que el sistema funcione aunque se cierre la pestaña.
 * **Sincronización en la Nube:** Conectado mediante Google Apps Script a una hoja de cálculo de Google Sheets para un respaldo permanente.
@@ -13,7 +13,7 @@ Este es un sistema personalizado de registro de ventas diseñado para funcionar 
 * **Resúmenes Automáticos:** Cada bloque semanal muestra el total de dinero recaudado y la cantidad de productos vendidos por tipo.
 * **Gestión de Estados:** Control de estados "Pendiente", "Pagado" y "Consumo Propio" con actualización en tiempo real en la nube.
 
-## 📖 Guía de Uso Rápido
+## Guía de Uso Rápido
 
 ### 1. Registrar una Venta
 1.  Ingresa el nombre del **Cliente**.
@@ -31,7 +31,7 @@ Este es un sistema personalizado de registro de ventas diseñado para funcionar 
 * **Marcar pagado:** Usa este botón en las ventas pendientes cuando recibas el dinero.
 * **Borrar venta:** Usa el botón rojo para eliminar registros erróneos. El sistema pedirá confirmación antes de proceder.
 
-## 🛠️ Configuración Técnica
+## Configuración Técnica
 - **Frontend:** HTML5, CSS3, JavaScript (Vanilla).
 - **Backend:** Google Apps Script (V8 Engine).
 - **Base de Datos:** Google Sheets API.
