@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Ventas</title>
+
+<style>
+body { font-family: system-ui, sans-serif; background: #f2f2f2; margin: 0; padding: 12px; }
+h1 { text-align: center; font-size: 1.4rem; }
+.card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+input, select, button { width: 100%; padding: 10px; margin-top: 6px; font-size: 1rem; box-sizing: border-box; }
+button { border: none; border-radius: 8px; background: #222; color: #fff; cursor: pointer; }
+button.secondary { background: #555; }
+.venta { border-left: 6px solid; padding-left: 8px; margin-bottom: 8px; }
+.pagado { border-color: #2ecc71; }
+.pendiente { border-color: #e74c3c; }
+.consumo { border-color: #7f8c8d; }
+.small { font-size: 0.85rem; color: #555; }
+#status { text-align: center; font-size: 0.8rem; margin-bottom: 8px; color: #e74c3c; }
+</style>
+</head>
+
+<body>
+
+<h1>Registro de Ventas</h1>
+<div id="status"></div>
+
+<div class="card">
+  <input list="clientes" id="cliente" placeholder="Nombre del cliente">
+  <datalist id="clientes"></datalist>
+
+  <select id="producto"></select>
+  <input id="precio" type="number" placeholder="Precio" readonly>
+
+  <select id="estado">
+    <option value="Pagado">Pagado</option>
+    <option value="Pendiente">Pendiente</option>
+  </select>
+
+  <label class="small">
+    <input type="checkbox" id="consumo"> Consumo propio
+  </label>
+
+  <button id="btnGuardar" onclick="agregarVenta()">Guardar venta</button>
+</div>
+
+<div class="card">
+  <button class="secondary" onclick="agregarProducto()">+ Añadir producto</button>
+</div>
+
+<div class="card">
+  <input id="filtroNombre" placeholder="Filtrar por nombre" oninput="render()">
+  <select id="filtroEstado" onchange="render()">
+    <option value="">Todos</option>
+    <option value="Pagado">Pagado</option>
+    <option value="Pendiente">Pendiente</option>
+  </select>
+  <button class="secondary" onclick="exportar()">Exportar CSV</button>
+</div>
+
+<div id="lista"></div>
+
+<script>
+/* ================= CONFIG ================= */
+// REEMPLAZA ESTA URL CON LA QUE TE DIO GOOGLE AL IMPLEMENTAR
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbzSFgyicLTAQfa_pkRhLvC4gdIf1x3KiSi1sJZHjr72q5elgqpaFL6p0wNjg1XqLDh5yQ/exec";
+
+/* ================= DATOS ================= */
+let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
+let clientes = JSON.parse(localStorage.getItem("clientes")) || [];
+let productos = JSON.parse(localStorage.getItem("productos")) || [
+  { nombre: "Score Gorilla", precio: 1500 }
+];
+
+/* ================= GUARDADO ================= */
+function guardarTodo() {
+  localStorage.setItem("ventas", JSON.stringify(ventas));
+  localStorage.setItem("clientes", JSON.stringify(clientes));
+  localStorage.setItem("productos", JSON.stringify(productos));
+}
+
+/* ================= GOOGLE SHEETS ================= */
+async function syncGoogle(venta) {
+  if (!ENDPOINT || ENDPOINT.includes("macros/s/")) {
+    const statusDiv = document.getElementById("status");
+    try {
+      // Usamos text/plain para evitar el preflight OPTIONS de CORS
+      await fetch(ENDPOINT, {
+        method: "POST",
+        mode: "no-cors", 
+        body: JSON.stringify(venta),
+        headers: { "Content-Type": "text/plain" }
+      });
+      statusDiv.textContent = "Sincronizado con Google Sheets";
+      statusDiv.style.color = "#2ecc71";
+      setTimeout(() => statusDiv.textContent = "", 3000);
+    } catch (e) {
+      statusDiv.textContent = "Error al sincronizar";
+      console.error(e);
+    }
+  }
+}
+
+/* ================= PRODUCTOS ================= */
+function cargarProductos() {
+  producto.innerHTML = "";
+  productos.forEach((p, i) => {
+    const o = document.createElement("option");
+    o.value = i;
+    o.textContent = `${p.nombre} ($${p.precio})`;
+    producto.appendChild(o);
+  });
+  actualizarPrecio();
+}
+
+function actualizarPrecio() {
+  if (consumo.checked) {
+    precio.value = 0;
+  } else {
+    precio.value = productos[producto.value]?.precio || 0;
+  }
+}
+
+function agregarProducto() {
+  const nombre = prompt("Nombre del producto:");
+  if (!nombre) return;
+  const p = prompt("Precio:");
+  if (!p || isNaN(p)) return;
+  productos.push({ nombre, precio: Number(p) });
+  guardarTodo();
+  cargarProductos();
+}
+
+/* ================= CLIENTES ================= */
+function actualizarClientes() {
+  clientesDatalist.innerHTML = "";
+  clientes.forEach(c => {
+    const o = document.createElement("option");
+    o.value = c;
+    clientesDatalist.appendChild(o);
+  });
+}
+
+/* ================= VENTAS ================= */
+function agregarVenta() {
+  const nombreCliente = cliente.value.trim();
+  if (!nombreCliente) return alert("Falta el nombre");
+
+  const venta = {
+    id: crypto.randomUUID(),
+    cliente: nombreCliente,
+    producto: productos[producto.value].nombre,
+    precio: Number(precio.value),
+    estado: estado.value,
+    consumo: consumo.checked,
+    fecha: new Date().toISOString().split('T')[0] // Formato YYYY-MM-DD
+  };
+
+  ventas.push(venta);
+  syncGoogle(venta);
+
+  if (!clientes.includes(nombreCliente)) {
+    clientes.push(nombreCliente);
+    actualizarClientes();
+  }
+
+  guardarTodo();
+  render();
+
+  cliente.value = "";
+  consumo.checked = false;
+  actualizarPrecio();
+}
+
+function marcarPagado(id) {
+  const v = ventas.find(x => x.id === id);
+  if (!v) return;
+  v.estado = "Pagado";
+  syncGoogle(v);
+  guardarTodo();
+  render();
+}
+
+/* ================= RENDER ================= */
+function render() {
+  const fn = filtroNombre.value.toLowerCase();
+  const fe = filtroEstado.value;
+  const filtradas = ventas.filter(v =>
+    (!fn || v.cliente.toLowerCase().includes(fn)) &&
+    (!fe || v.estado === fe)
+  );
+
+  lista.innerHTML = filtradas.map(v => `
+    <div class="card venta ${v.consumo ? "consumo" : v.estado === "Pagado" ? "pagado" : "pendiente"}">
+      <strong>${v.cliente}</strong><br>
+      <span class="small">${v.producto} · $${v.precio}</span><br>
+      <span class="small">${v.estado} · ${v.fecha}</span><br>
+      ${v.estado === "Pendiente"
+        ? `<button onclick="marcarPagado('${v.id}')">Marcar pagado</button>`
+        : ""}
+    </div>
+  `).join("");
+}
+
+/* ================= EXPORTAR ================= */
+function exportar() {
+  let csv = "ID,Cliente,Producto,Precio,Estado,Consumo,Fecha\n";
+  ventas.forEach(v => {
+    csv += `"${v.id}","${v.cliente}","${v.producto}",${v.precio},"${v.estado}",${v.consumo},"${v.fecha}"\n`;
+  });
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `ventas_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+/* ================= INIT ================= */
+const cliente = document.getElementById("cliente");
+const producto = document.getElementById("producto");
+const precio = document.getElementById("precio");
+const estado = document.getElementById("estado");
+const consumo = document.getElementById("consumo");
+const filtroNombre = document.getElementById("filtroNombre");
+const filtroEstado = document.getElementById("filtroEstado");
+const lista = document.getElementById("lista");
+const clientesDatalist = document.getElementById("clientes");
+
+consumo.addEventListener("change", actualizarPrecio);
+producto.addEventListener("change", actualizarPrecio);
+
+actualizarClientes();
+cargarProductos();
+render();
+</script>
+
+</body>
+
+</html>
