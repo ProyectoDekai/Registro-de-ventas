@@ -1,6 +1,4 @@
 # Registro-de-ventas
-
-https://proyectodekai.github.io/Registro-de-ventas/
 # Sistema de Gestión de Ventas Semanal
 
 Este es un sistema personalizado de registro de ventas diseñado para funcionar de forma rápida en dispositivos móviles, con almacenamiento local y respaldo automático en la nube.
