@@ -7,7 +7,33 @@
 
 <style>
 body { font-family: system-ui, sans-serif; background: #f2f2f2; margin: 0; padding: 12px; }
-h1 { text-align: center; font-size: 1.4rem; }
+
+/* Cabecera con Botón Maestro */
+.header-container { 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  position: relative; 
+  margin-bottom: 20px;
+}
+h1 { margin: 0; font-size: 1.4rem; }
+.btn-bodega-maestro { 
+  position: absolute; 
+  right: 0; 
+  background: #2196f3; 
+  color: white; 
+  border: none; 
+  border-radius: 50%; 
+  width: 42px; 
+  height: 42px; 
+  font-size: 1.3rem; 
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.1); position: relative; }
 input, select, button { width: 100%; padding: 10px; margin-top: 6px; font-size: 1rem; box-sizing: border-box; }
 button { border: none; border-radius: 8px; background: #222; color: #fff; cursor: pointer; }
@@ -20,65 +46,76 @@ button.danger { background: #e74c3c; margin-top: 8px; font-size: 0.85rem; paddin
 .pendiente { border-color: #e74c3c; }
 .consumo { border-color: #7f8c8d; }
 .small { font-size: 0.85rem; color: #555; }
-#status { text-align: center; font-size: 0.8rem; margin-bottom: 8px; font-weight: bold; }
+#status { text-align: center; font-size: 0.8rem; margin-bottom: 8px; font-weight: bold; height: 1rem; }
 
 /* ESTILOS ACORDEÓN SEMANAL */
-details {
-  background: #e0e0e0;
-  margin-bottom: 15px;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+details { background: #e0e0e0; margin-bottom: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+summary { background: #333; color: white; padding: 12px; cursor: pointer; font-weight: bold; list-style: none; display: flex; flex-direction: column; position: relative; }
+summary::after { content: "+"; position: absolute; right: 15px; top: 15px; font-size: 1.2rem; }
+details[open] summary::after { content: "-"; }
+.summary-header { display: flex; justify-content: space-between; align-items: center; padding-right: 20px; }
+.summary-sub { font-size: 0.82rem; color: #ccc; margin-top: 4px; font-weight: normal; line-height: 1.2; }
+.group-content { padding: 10px; }
+
+/* Indicadores de dinero en el summary */
+.total-label { font-size: 0.9rem; margin-left: 10px; }
+.total-pendiente { color: #ff7675; } /* Rojo suave para modo oscuro de la barra */
+
+/* Modal Bodega */
+#modalBodega {
+  display: none;
+  position: fixed;
+  z-index: 100;
+  left: 0; top: 0; width: 100%; height: 100%;
+  background-color: rgba(0,0,0,0.6);
 }
-summary {
-  background: #333;
-  color: white;
-  padding: 12px;
-  cursor: pointer;
-  font-weight: bold;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-summary::after {
-  content: "+"; 
-  position: absolute; 
-  right: 15px; 
-  top: 15px;
-  font-size: 1.2rem;
-}
-details[open] summary::after {
-  content: "-";
-}
-.summary-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-right: 20px; /* Espacio para el +/- */
-}
-.summary-sub {
-  font-size: 0.85rem;
-  color: #ccc;
-  margin-top: 4px;
-  font-weight: normal;
-}
-.group-content {
-  padding: 10px;
+.modal-content {
+  background-color: white;
+  margin: 10% auto;
+  padding: 20px;
+  border-radius: 12px;
+  width: 85%;
+  max-width: 400px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Registro de Ventas</h1>
+<div id="modalBodega">
+  <div class="modal-content">
+    <h3 style="margin-top:0">Gestión de Bodega / Stock</h3>
+    
+    <label class="small">Producto:</label>
+    <select id="bodegaSelectProducto"></select>
+    
+    <label class="small">Cantidad de unidades:</label>
+    <input type="number" id="bodegaCantidad" placeholder="Ej: 12">
+    
+    <label class="small">Valor Inversión Lote:</label>
+    <input type="number" id="bodegaCosto" placeholder="Ej: 10000">
+    
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+    
+    <button class="secondary" onclick="agregarProducto()" style="background: #607d8b; margin-bottom: 10px;">+ Crear nuevo producto</button>
+    
+    <button onclick="guardarIngresoBodega()" style="background:#2196f3;">Registrar Ingreso Stock</button>
+    <button class="secondary" onclick="cerrarModal()">Cerrar</button>
+  </div>
+</div>
+
+<div class="header-container">
+  <h1>Registro de Ventas</h1>
+  <button class="btn-bodega-maestro" onclick="abrirModalBodega()" title="Ingresar Stock">📦</button>
+</div>
+
 <div id="status"></div>
 
 <div class="card">
   <input list="clientes" id="cliente" placeholder="Nombre del cliente">
   <datalist id="clientes"></datalist>
 
-  <select id="producto"></select>
+  <select id="producto" onchange="actualizarPrecio()"></select>
   <input id="precio" type="number" placeholder="Precio" readonly>
 
   <select id="estado">
@@ -94,31 +131,25 @@ details[open] summary::after {
 </div>
 
 <div class="card">
-  <button class="secondary" onclick="agregarProducto()">+ Añadir producto</button>
-</div>
-
-<div class="card">
   <input id="filtroNombre" placeholder="Filtrar por nombre" oninput="render()">
   <select id="filtroEstado" onchange="render()">
-    <option value="">Todos</option>
+    <option value="">Todos los estados</option>
     <option value="Pagado">Pagado</option>
     <option value="Pendiente">Pendiente</option>
   </select>
-  <button class="secondary" onclick="exportar()">Exportar CSV</button>
+  <button class="secondary" onclick="exportar()">Exp.CSV</button>
 </div>
 
 <div id="lista"></div>
 
 <script>
 /* ================= CONFIG ================= */
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbzSFgyicLTAQfa_pkRhLvC4gdIf1x3KiSi1sJZHjr72q5elgqpaFL6p0wNjg1XqLDh5yQ/exec";
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbwZlgOCfqbQk07BNON-AGjyymHvsyC1Ht1OB-dtY0NU6s-B9HDZtEqHLygxx3JFRb-PrA/exec";
 
 /* ================= DATOS ================= */
 let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
 let clientes = JSON.parse(localStorage.getItem("clientes")) || [];
-let productos = JSON.parse(localStorage.getItem("productos")) || [
-  { nombre: "Score Gorilla", precio: 1500 }
-];
+let productos = JSON.parse(localStorage.getItem("productos")) || [{ nombre: "Score Gorilla", precio: 1500 }];
 
 function guardarTodo() {
   localStorage.setItem("ventas", JSON.stringify(ventas));
@@ -126,27 +157,62 @@ function guardarTodo() {
   localStorage.setItem("productos", JSON.stringify(productos));
 }
 
-/* ================= GOOGLE SHEETS ================= */
-async function syncGoogle(venta) {
+/* ================= GOOGLE SYNC ================= */
+async function syncGoogle(datos) {
   const statusDiv = document.getElementById("status");
-  if (!ENDPOINT) return;
   try {
-    await fetch(ENDPOINT, {
-      method: "POST",
+    await fetch(ENDPOINT, { 
+      method: "POST", 
       mode: "no-cors", 
-      body: JSON.stringify(venta),
-      headers: { "Content-Type": "text/plain" }
+      body: JSON.stringify(datos)
     });
     statusDiv.textContent = "✓ Sincronizado";
     statusDiv.style.color = "#2ecc71";
     setTimeout(() => statusDiv.textContent = "", 2000);
   } catch (e) {
-    statusDiv.textContent = "Error de red";
+    statusDiv.textContent = "Error de conexión";
     statusDiv.style.color = "#e74c3c";
   }
 }
 
-/* ================= LÓGICA DE NEGOCIO ================= */
+/* ================= FUNCIONES BODEGA ================= */
+function abrirModalBodega() {
+  const sel = document.getElementById("bodegaSelectProducto");
+  sel.innerHTML = "";
+  productos.forEach(p => {
+    sel.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
+  });
+  document.getElementById("modalBodega").style.display = "block";
+}
+
+function cerrarModal() { document.getElementById("modalBodega").style.display = "none"; }
+
+function guardarIngresoBodega() {
+  const prod = document.getElementById("bodegaSelectProducto").value;
+  const unidades = document.getElementById("bodegaCantidad").value;
+  const costo = document.getElementById("bodegaCosto").value;
+
+  if (!unidades || !costo) return alert("Por favor completa cantidad y costo");
+
+  const compra = {
+    id: "COMPRA-" + Date.now(),
+    fecha: new Date().toISOString().split('T')[0],
+    cliente: "SISTEMA: INGRESO STOCK",
+    producto: prod,
+    precio: Number(costo),
+    estado: "BODEGA",
+    consumo: false,
+    unidades: Number(unidades)
+  };
+
+  syncGoogle(compra);
+  cerrarModal();
+  document.getElementById("bodegaCantidad").value = "";
+  document.getElementById("bodegaCosto").value = "";
+  alert("Ingreso de stock enviado a Google Sheets");
+}
+
+/* ================= GESTIÓN PRODUCTOS ================= */
 function cargarProductos() {
   const select = document.getElementById("producto");
   select.innerHTML = "";
@@ -159,44 +225,37 @@ function cargarProductos() {
   actualizarPrecio();
 }
 
+function agregarProducto() {
+  const nombre = prompt("Nombre del nuevo producto:");
+  if (!nombre) return;
+  const p = prompt("Precio de venta habitual:");
+  if (!p || isNaN(p)) return;
+  productos.push({ nombre, precio: Number(p) });
+  guardarTodo();
+  cargarProductos();
+  abrirModalBodega(); 
+}
+
 function actualizarPrecio() {
   const isConsumo = document.getElementById("consumo").checked;
   const prodIdx = document.getElementById("producto").value;
   document.getElementById("precio").value = isConsumo ? 0 : (productos[prodIdx]?.precio || 0);
 }
 
-function agregarProducto() {
-  const nombre = prompt("Nombre del producto:");
-  if (!nombre) return;
-  const p = prompt("Precio:");
-  if (!p || isNaN(p)) return;
-  productos.push({ nombre, precio: Number(p) });
-  guardarTodo();
-  cargarProductos();
-}
-
-function actualizarClientes() {
-  const dl = document.getElementById("clientes");
-  dl.innerHTML = "";
-  clientes.forEach(c => {
-    const o = document.createElement("option");
-    o.value = c;
-    dl.appendChild(o);
-  });
-}
-
+/* ================= GESTIÓN VENTAS ================= */
 function agregarVenta() {
   const nom = document.getElementById("cliente").value.trim();
-  if (!nom) return alert("Ingresa un nombre");
+  if (!nom) return alert("Ingresa el nombre del cliente");
 
   const venta = {
     id: crypto.randomUUID(),
+    fecha: new Date().toISOString().split('T')[0],
     cliente: nom,
     producto: productos[document.getElementById("producto").value].nombre,
     precio: Number(document.getElementById("precio").value),
     estado: document.getElementById("estado").value,
     consumo: document.getElementById("consumo").checked,
-    fecha: new Date().toISOString().split('T')[0]
+    unidades: 1
   };
 
   ventas.push(venta);
@@ -225,11 +284,10 @@ function marcarPagado(id) {
 }
 
 function borrarVenta(id) {
-  if (confirm("¿Seguro que quieres borrar esta venta?")) {
+  if (confirm("¿Eliminar registro?")) {
     const idx = ventas.findIndex(x => x.id === id);
     if (idx !== -1) {
-      const eliminada = {...ventas[idx], estado: "ELIMINADO"};
-      syncGoogle(eliminada);
+      syncGoogle({...ventas[idx], estado: "ELIMINADO"});
       ventas.splice(idx, 1);
       guardarTodo();
       render();
@@ -237,22 +295,19 @@ function borrarVenta(id) {
   }
 }
 
-/* ================= LÓGICA DE FECHAS (SEMANAS) ================= */
+/* ================= UTILIDADES DE FECHA ================= */
 function obtenerLunes(fechaStr) {
-  // Creamos la fecha evitando problemas de zona horaria
   const partes = fechaStr.split('-');
   const d = new Date(partes[0], partes[1] - 1, partes[2]);
-  
-  const dia = d.getDay(); // 0 es Domingo, 1 Lunes...
-  const diff = d.getDate() - dia + (dia == 0 ? -6 : 1); // Ajustar al lunes
-  
+  const dia = d.getDay();
+  const diff = d.getDate() - dia + (dia == 0 ? -6 : 1);
   const lunes = new Date(d.setDate(diff));
   return lunes.toISOString().split('T')[0];
 }
 
 function formatearFecha(fechaStr) {
   const partes = fechaStr.split('-');
-  return `${partes[2]}/${partes[1]}`; // DD/MM
+  return `${partes[2]}/${partes[1]}`;
 }
 
 /* ================= RENDERIZADO ================= */
@@ -261,13 +316,11 @@ function render() {
   const fe = document.getElementById("filtroEstado").value;
   const lista = document.getElementById("lista");
 
-  // 1. Filtrar
   const filtradas = ventas.filter(v => 
     (!fn || v.cliente.toLowerCase().includes(fn)) && 
     (!fe || v.estado === fe)
   );
 
-  // 2. Agrupar por SEMANA (Lunes)
   const grupos = {};
   filtradas.forEach(v => {
     const lunes = obtenerLunes(v.fecha);
@@ -275,70 +328,75 @@ function render() {
     grupos[lunes].push(v);
   });
 
-  // 3. Ordenar claves (Semanas) de más reciente a más antigua
   const semanasOrdenadas = Object.keys(grupos).sort().reverse();
 
-  // 4. Generar HTML
   lista.innerHTML = semanasOrdenadas.map((semana, index) => {
     const grupoVentas = grupos[semana];
     
-    // Totales
-    const totalDinero = grupoVentas.reduce((sum, v) => sum + v.precio, 0);
+    // Cálculo de totales: Total Vendido (Pagados) vs Total Pendiente
+    const totalPagado = grupoVentas.reduce((sum, v) => v.estado === "Pagado" ? sum + v.precio : sum, 0);
+    const totalPendiente = grupoVentas.reduce((sum, v) => v.estado === "Pendiente" ? sum + v.precio : sum, 0);
+    
+    // Resumen de productos por semana
     const contador = {};
     grupoVentas.forEach(v => { contador[v.producto] = (contador[v.producto] || 0) + 1; });
-    const resumenProd = Object.entries(contador)
-      .map(([prod, cant]) => `${prod}: ${cant}`)
-      .join(", ");
+    const resumenProd = Object.entries(contador).map(([p, c]) => `${c}x ${p}`).join(" · ");
 
-    // HTML Tarjetas
     const tarjetas = grupoVentas.map(v => `
       <div class="card venta ${v.consumo ? "consumo" : v.estado === "Pagado" ? "pagado" : "pendiente"}">
         <strong>${v.cliente}</strong> <span style="float:right">$${v.precio}</span><br>
         <span class="small">${v.producto}</span><br>
         <span class="small">${v.estado} · ${v.fecha}</span><br>
         ${v.estado === "Pendiente" ? `<button onclick="marcarPagado('${v.id}')">Marcar pagado</button>` : ""}
-        <button class="danger" onclick="borrarVenta('${v.id}')">Borrar venta</button>
+        <button class="danger" onclick="borrarVenta('${v.id}')">Borrar</button>
       </div>
     `).join("");
 
-    // Calcular fecha fin de semana (Sábado) para mostrar en título
     const fechaLunes = new Date(semana);
     const fechaSabado = new Date(fechaLunes);
-    fechaSabado.setDate(fechaLunes.getDate() + 5); // +5 días para llegar al sábado
-    
-    // Solo la primera semana (la actual) sale abierta
+    fechaSabado.setDate(fechaLunes.getDate() + 5);
     const isOpen = index === 0 ? "open" : "";
 
     return `
       <details ${isOpen}>
         <summary>
           <div class="summary-header">
-            <span>Semana ${formatearFecha(semana)} al ${fechaSabado.getDate()}/${fechaSabado.getMonth()+1}</span>
-            <span>$${totalDinero}</span>
+            <span>Sem. ${formatearFecha(semana)} al ${fechaSabado.getDate()}/${fechaSabado.getMonth()+1}</span>
+            <div>
+               <span class="total-label">Pagado: $${totalPagado}</span>
+               <span class="total-label total-pendiente">Deuda: $${totalPendiente}</span>
+            </div>
           </div>
           <div class="summary-sub">${resumenProd}</div>
         </summary>
-        <div class="group-content">
-          ${tarjetas}
-        </div>
+        <div class="group-content">${tarjetas}</div>
       </details>
     `;
   }).join("");
 }
 
+function actualizarClientes() {
+  const dl = document.getElementById("clientes");
+  dl.innerHTML = "";
+  clientes.forEach(c => {
+    const o = document.createElement("option");
+    o.value = c;
+    dl.appendChild(o);
+  });
+}
+
 function exportar() {
-  let csv = "ID,Cliente,Producto,Precio,Estado,Consumo,Fecha\n";
-  ventas.forEach(v => { csv += `"${v.id}","${v.cliente}","${v.producto}",${v.precio},"${v.estado}",${v.consumo},"${v.fecha}"\n`; });
+  let csv = "ID,Fecha,Cliente,Producto,Precio,Estado,Consumo\n";
+  ventas.forEach(v => { csv += `"${v.id}","${v.fecha}","${v.cliente}","${v.producto}",${v.precio},"${v.estado}",${v.consumo}\n`; });
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `ventas_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `ventas_respaldo.csv`;
   a.click();
 }
 
-// Iniciar
+/* ================= INICIO ================= */
 document.getElementById("consumo").addEventListener("change", actualizarPrecio);
-document.getElementById("producto").addEventListener("change", actualizarPrecio);
 actualizarClientes();
 cargarProductos();
 render();
