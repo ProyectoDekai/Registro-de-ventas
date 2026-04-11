@@ -17,9 +17,17 @@ body { font-family: system-ui, sans-serif; background: #f2f2f2; margin: 0; paddi
   margin-bottom: 20px;
 }
 h1 { margin: 0; font-size: 1.4rem; }
+
+/* NUEVO: Contenedor para alinear botón de texto bajo el icono */
+.header-actions {
+  position: absolute;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .btn-bodega-maestro { 
-  position: absolute; 
-  right: 0; 
   background: #2196f3; 
   color: white; 
   border: none; 
@@ -34,13 +42,24 @@ h1 { margin: 0; font-size: 1.4rem; }
   justify-content: center;
 }
 
+/* Estilo para el botón de texto solicitado */
+.btn-sync-text {
+  background: none;
+  border: none;
+  color: #2196f3;
+  font-size: 0.65rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 4px 0;
+  text-transform: uppercase;
+}
+
 .card { background: #fff; border-radius: 12px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.1); position: relative; }
 input, select, button { width: 100%; padding: 10px; margin-top: 6px; font-size: 1rem; box-sizing: border-box; }
 button { border: none; border-radius: 8px; background: #222; color: #fff; cursor: pointer; }
 button.secondary { background: #555; }
 button.danger { background: #e74c3c; margin-top: 8px; font-size: 0.85rem; padding: 8px; }
 
-/* ESTILOS DE ESTADO */
 .venta { border-left: 6px solid; padding-left: 8px; margin-bottom: 8px; }
 .pagado { border-color: #2ecc71; }
 .pendiente { border-color: #e74c3c; }
@@ -48,7 +67,6 @@ button.danger { background: #e74c3c; margin-top: 8px; font-size: 0.85rem; paddin
 .small { font-size: 0.85rem; color: #555; }
 #status { text-align: center; font-size: 0.8rem; margin-bottom: 8px; font-weight: bold; height: 1rem; }
 
-/* ESTILOS ACORDEÓN SEMANAL */
 details { background: #e0e0e0; margin-bottom: 15px; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
 summary { background: #333; color: white; padding: 12px; cursor: pointer; font-weight: bold; list-style: none; display: flex; flex-direction: column; position: relative; }
 summary::after { content: "+"; position: absolute; right: 15px; top: 15px; font-size: 1.2rem; }
@@ -57,11 +75,9 @@ details[open] summary::after { content: "-"; }
 .summary-sub { font-size: 0.82rem; color: #ccc; margin-top: 4px; font-weight: normal; line-height: 1.2; }
 .group-content { padding: 10px; }
 
-/* Indicadores de dinero en el summary */
 .total-label { font-size: 0.9rem; margin-left: 10px; }
-.total-pendiente { color: #ff7675; } /* Rojo suave para modo oscuro de la barra */
+.total-pendiente { color: #ff7675; }
 
-/* Modal Bodega */
 #modalBodega {
   display: none;
   position: fixed;
@@ -79,26 +95,19 @@ details[open] summary::after { content: "-"; }
 }
 </style>
 </head>
-
 <body>
 
 <div id="modalBodega">
   <div class="modal-content">
     <h3 style="margin-top:0">Gestión de Bodega / Stock</h3>
-    
     <label class="small">Producto:</label>
     <select id="bodegaSelectProducto"></select>
-    
     <label class="small">Cantidad de unidades:</label>
     <input type="number" id="bodegaCantidad" placeholder="Ej: 12">
-    
     <label class="small">Valor Inversión Lote:</label>
     <input type="number" id="bodegaCosto" placeholder="Ej: 10000">
-    
     <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-    
     <button class="secondary" onclick="agregarProducto()" style="background: #607d8b; margin-bottom: 10px;">+ Crear nuevo producto</button>
-    
     <button onclick="guardarIngresoBodega()" style="background:#2196f3;">Registrar Ingreso Stock</button>
     <button class="secondary" onclick="cerrarModal()">Cerrar</button>
   </div>
@@ -106,7 +115,10 @@ details[open] summary::after { content: "-"; }
 
 <div class="header-container">
   <h1>Registro de Ventas</h1>
-  <button class="btn-bodega-maestro" onclick="abrirModalBodega()" title="Ingresar Stock">📦</button>
+  <div class="header-actions">
+    <button class="btn-bodega-maestro" onclick="abrirModalBodega()">📦</button>
+    <button class="btn-sync-text" onclick="sincronizarDesdeExcel()">Sincronizar</button>
+  </div>
 </div>
 
 <div id="status"></div>
@@ -114,19 +126,13 @@ details[open] summary::after { content: "-"; }
 <div class="card">
   <input list="clientes" id="cliente" placeholder="Nombre del cliente">
   <datalist id="clientes"></datalist>
-
   <select id="producto" onchange="actualizarPrecio()"></select>
   <input id="precio" type="number" placeholder="Precio" readonly>
-
   <select id="estado">
     <option value="Pagado">Pagado</option>
     <option value="Pendiente">Pendiente</option>
   </select>
-
-  <label class="small">
-    <input type="checkbox" id="consumo"> Consumo propio
-  </label>
-
+  <label class="small"><input type="checkbox" id="consumo"> Consumo propio</label>
   <button id="btnGuardar" onclick="agregarVenta()">Guardar venta</button>
 </div>
 
@@ -143,10 +149,8 @@ details[open] summary::after { content: "-"; }
 <div id="lista"></div>
 
 <script>
-/* ================= CONFIG ================= */
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbwZlgOCfqbQk07BNON-AGjyymHvsyC1Ht1OB-dtY0NU6s-B9HDZtEqHLygxx3JFRb-PrA/exec";
 
-/* ================= DATOS ================= */
 let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
 let clientes = JSON.parse(localStorage.getItem("clientes")) || [];
 let productos = JSON.parse(localStorage.getItem("productos")) || [{ nombre: "Score Gorilla", precio: 1500 }];
@@ -157,31 +161,48 @@ function guardarTodo() {
   localStorage.setItem("productos", JSON.stringify(productos));
 }
 
-/* ================= GOOGLE SYNC ================= */
-async function syncGoogle(datos) {
+// NUEVA FUNCIÓN PARA EL BOTÓN SOLICITADO
+async function sincronizarDesdeExcel() {
   const statusDiv = document.getElementById("status");
+  statusDiv.textContent = "⌛ Sincronizando...";
   try {
-    await fetch(ENDPOINT, { 
-      method: "POST", 
-      mode: "no-cors", 
-      body: JSON.stringify(datos)
-    });
+    const res = await fetch(ENDPOINT);
+    const datosExcel = await res.json();
+    
+    // Fusión inteligente: No duplicamos IDs
+    const excelMap = new Map(datosExcel.map(v => [v.id, v]));
+    const localMap = new Map(ventas.map(v => [v.id, v]));
+    const fusion = Array.from(new Map([...localMap, ...excelMap]).values());
+    
+    ventas = fusion.sort((a,b) => b.fecha.localeCompare(a.fecha));
+    
+    // Actualizar clientes conocidos
+    const nuevosClientes = [...new Set(ventas.map(v => v.cliente))].filter(c => !c.includes("SISTEMA"));
+    clientes = nuevosClientes;
+
+    guardarTodo();
+    render();
     statusDiv.textContent = "✓ Sincronizado";
-    statusDiv.style.color = "#2ecc71";
     setTimeout(() => statusDiv.textContent = "", 2000);
   } catch (e) {
-    statusDiv.textContent = "Error de conexión";
-    statusDiv.style.color = "#e74c3c";
+    statusDiv.textContent = "Error de red";
   }
 }
 
-/* ================= FUNCIONES BODEGA ================= */
+async function syncGoogle(datos) {
+  const statusDiv = document.getElementById("status");
+  try {
+    await fetch(ENDPOINT, { method: "POST", mode: "no-cors", body: JSON.stringify(datos) });
+    statusDiv.textContent = "✓ Enviado";
+    setTimeout(() => statusDiv.textContent = "", 2000);
+  } catch (e) {
+    statusDiv.textContent = "Error de conexión";
+  }
+}
+
 function abrirModalBodega() {
   const sel = document.getElementById("bodegaSelectProducto");
-  sel.innerHTML = "";
-  productos.forEach(p => {
-    sel.innerHTML += `<option value="${p.nombre}">${p.nombre}</option>`;
-  });
+  sel.innerHTML = productos.map(p => `<option value="${p.nombre}">${p.nombre}</option>`).join("");
   document.getElementById("modalBodega").style.display = "block";
 }
 
@@ -191,8 +212,7 @@ function guardarIngresoBodega() {
   const prod = document.getElementById("bodegaSelectProducto").value;
   const unidades = document.getElementById("bodegaCantidad").value;
   const costo = document.getElementById("bodegaCosto").value;
-
-  if (!unidades || !costo) return alert("Por favor completa cantidad y costo");
+  if (!unidades || !costo) return alert("Completa los datos");
 
   const compra = {
     id: "COMPRA-" + Date.now(),
@@ -207,33 +227,22 @@ function guardarIngresoBodega() {
 
   syncGoogle(compra);
   cerrarModal();
-  document.getElementById("bodegaCantidad").value = "";
-  document.getElementById("bodegaCosto").value = "";
-  alert("Ingreso de stock enviado a Google Sheets");
+  alert("Stock enviado");
 }
 
-/* ================= GESTIÓN PRODUCTOS ================= */
 function cargarProductos() {
   const select = document.getElementById("producto");
-  select.innerHTML = "";
-  productos.forEach((p, i) => {
-    const o = document.createElement("option");
-    o.value = i;
-    o.textContent = `${p.nombre} ($${p.precio})`;
-    select.appendChild(o);
-  });
+  select.innerHTML = productos.map((p, i) => `<option value="${i}">${p.nombre} ($${p.precio})</option>`).join("");
   actualizarPrecio();
 }
 
 function agregarProducto() {
-  const nombre = prompt("Nombre del nuevo producto:");
-  if (!nombre) return;
-  const p = prompt("Precio de venta habitual:");
-  if (!p || isNaN(p)) return;
+  const nombre = prompt("Nombre:");
+  const p = prompt("Precio:");
+  if (!nombre || !p) return;
   productos.push({ nombre, precio: Number(p) });
   guardarTodo();
   cargarProductos();
-  abrirModalBodega(); 
 }
 
 function actualizarPrecio() {
@@ -242,11 +251,9 @@ function actualizarPrecio() {
   document.getElementById("precio").value = isConsumo ? 0 : (productos[prodIdx]?.precio || 0);
 }
 
-/* ================= GESTIÓN VENTAS ================= */
 function agregarVenta() {
   const nom = document.getElementById("cliente").value.trim();
-  if (!nom) return alert("Ingresa el nombre del cliente");
-
+  if (!nom) return alert("Nombre cliente vacío");
   const venta = {
     id: crypto.randomUUID(),
     fecha: new Date().toISOString().split('T')[0],
@@ -257,20 +264,15 @@ function agregarVenta() {
     consumo: document.getElementById("consumo").checked,
     unidades: 1
   };
-
   ventas.push(venta);
   syncGoogle(venta);
-
   if (!clientes.includes(nom)) {
     clientes.push(nom);
     actualizarClientes();
   }
-
   guardarTodo();
   render();
   document.getElementById("cliente").value = "";
-  document.getElementById("consumo").checked = false;
-  actualizarPrecio();
 }
 
 function marcarPagado(id) {
@@ -284,7 +286,7 @@ function marcarPagado(id) {
 }
 
 function borrarVenta(id) {
-  if (confirm("¿Eliminar registro?")) {
+  if (confirm("¿Eliminar?")) {
     const idx = ventas.findIndex(x => x.id === id);
     if (idx !== -1) {
       syncGoogle({...ventas[idx], estado: "ELIMINADO"});
@@ -295,7 +297,6 @@ function borrarVenta(id) {
   }
 }
 
-/* ================= UTILIDADES DE FECHA ================= */
 function obtenerLunes(fechaStr) {
   const partes = fechaStr.split('-');
   const d = new Date(partes[0], partes[1] - 1, partes[2]);
@@ -310,38 +311,26 @@ function formatearFecha(fechaStr) {
   return `${partes[2]}/${partes[1]}`;
 }
 
-/* ================= RENDERIZADO ================= */
 function render() {
   const fn = document.getElementById("filtroNombre").value.toLowerCase();
   const fe = document.getElementById("filtroEstado").value;
   const lista = document.getElementById("lista");
-
-  const filtradas = ventas.filter(v => 
-    (!fn || v.cliente.toLowerCase().includes(fn)) && 
-    (!fe || v.estado === fe)
-  );
-
+  const filtradas = ventas.filter(v => (!fn || v.cliente.toLowerCase().includes(fn)) && (!fe || v.estado === fe));
   const grupos = {};
   filtradas.forEach(v => {
     const lunes = obtenerLunes(v.fecha);
     if (!grupos[lunes]) grupos[lunes] = [];
     grupos[lunes].push(v);
   });
-
   const semanasOrdenadas = Object.keys(grupos).sort().reverse();
 
   lista.innerHTML = semanasOrdenadas.map((semana, index) => {
     const grupoVentas = grupos[semana];
-    
-    // Cálculo de totales: Total Vendido (Pagados) vs Total Pendiente
     const totalPagado = grupoVentas.reduce((sum, v) => v.estado === "Pagado" ? sum + v.precio : sum, 0);
     const totalPendiente = grupoVentas.reduce((sum, v) => v.estado === "Pendiente" ? sum + v.precio : sum, 0);
-    
-    // Resumen de productos por semana
     const contador = {};
     grupoVentas.forEach(v => { contador[v.producto] = (contador[v.producto] || 0) + 1; });
     const resumenProd = Object.entries(contador).map(([p, c]) => `${c}x ${p}`).join(" · ");
-
     const tarjetas = grupoVentas.map(v => `
       <div class="card venta ${v.consumo ? "consumo" : v.estado === "Pagado" ? "pagado" : "pendiente"}">
         <strong>${v.cliente}</strong> <span style="float:right">$${v.precio}</span><br>
@@ -351,38 +340,25 @@ function render() {
         <button class="danger" onclick="borrarVenta('${v.id}')">Borrar</button>
       </div>
     `).join("");
-
-    const fechaLunes = new Date(semana);
+    const fechaLunes = new Date(semana + "T12:00:00");
     const fechaSabado = new Date(fechaLunes);
     fechaSabado.setDate(fechaLunes.getDate() + 5);
-    const isOpen = index === 0 ? "open" : "";
-
-    return `
-      <details ${isOpen}>
-        <summary>
-          <div class="summary-header">
-            <span>Sem. ${formatearFecha(semana)} al ${fechaSabado.getDate()}/${fechaSabado.getMonth()+1}</span>
-            <div>
-               <span class="total-label">Pagado: $${totalPagado}</span>
-               <span class="total-label total-pendiente">Deuda: $${totalPendiente}</span>
-            </div>
-          </div>
-          <div class="summary-sub">${resumenProd}</div>
-        </summary>
-        <div class="group-content">${tarjetas}</div>
-      </details>
-    `;
+    return `<details ${index === 0 ? "open" : ""}>
+      <summary>
+        <div class="summary-header">
+          <span>Sem. ${formatearFecha(semana)} al ${fechaSabado.getDate()}/${fechaSabado.getMonth()+1}</span>
+          <div><span class="total-label">Pagado: $${totalPagado}</span><span class="total-label total-pendiente">Deuda: $${totalPendiente}</span></div>
+        </div>
+        <div class="summary-sub">${resumenProd}</div>
+      </summary>
+      <div class="group-content">${tarjetas}</div>
+    </details>`;
   }).join("");
 }
 
 function actualizarClientes() {
   const dl = document.getElementById("clientes");
-  dl.innerHTML = "";
-  clientes.forEach(c => {
-    const o = document.createElement("option");
-    o.value = c;
-    dl.appendChild(o);
-  });
+  dl.innerHTML = clientes.map(c => `<option value="${c}">`).join("");
 }
 
 function exportar() {
@@ -395,7 +371,6 @@ function exportar() {
   a.click();
 }
 
-/* ================= INICIO ================= */
 document.getElementById("consumo").addEventListener("change", actualizarPrecio);
 actualizarClientes();
 cargarProductos();
