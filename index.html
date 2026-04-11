@@ -161,7 +161,6 @@ function guardarTodo() {
   localStorage.setItem("productos", JSON.stringify(productos));
 }
 
-// NUEVA FUNCIÓN PARA EL BOTÓN SOLICITADO
 async function sincronizarDesdeExcel() {
   const statusDiv = document.getElementById("status");
   statusDiv.textContent = "⌛ Sincronizando...";
@@ -174,10 +173,13 @@ async function sincronizarDesdeExcel() {
     const localMap = new Map(ventas.map(v => [v.id, v]));
     const fusion = Array.from(new Map([...localMap, ...excelMap]).values());
     
-    ventas = fusion.sort((a,b) => b.fecha.localeCompare(a.fecha));
+    ventas = fusion.sort((a,b) => {
+        const dateA = new Date(a.fecha);
+        const dateB = new Date(b.fecha);
+        return dateB - dateA;
+    });
     
-    // Actualizar clientes conocidos
-    const nuevosClientes = [...new Set(ventas.map(v => v.cliente))].filter(c => !c.includes("SISTEMA"));
+    const nuevosClientes = [...new Set(ventas.map(v => v.cliente))].filter(c => c && !c.includes("SISTEMA"));
     clientes = nuevosClientes;
 
     guardarTodo();
@@ -254,8 +256,12 @@ function actualizarPrecio() {
 function agregarVenta() {
   const nom = document.getElementById("cliente").value.trim();
   if (!nom) return alert("Nombre cliente vacío");
+  
+  // ID compatible con todos los navegadores móviles
+  const nuevoId = "ID-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+  
   const venta = {
-    id: crypto.randomUUID(),
+    id: nuevoId,
     fecha: new Date().toISOString().split('T')[0],
     cliente: nom,
     producto: productos[document.getElementById("producto").value].nombre,
@@ -297,40 +303,56 @@ function borrarVenta(id) {
   }
 }
 
-function obtenerLunes(fechaStr) {
-  const partes = fechaStr.split('-');
-  const d = new Date(partes[0], partes[1] - 1, partes[2]);
-  const dia = d.getDay();
-  const diff = d.getDate() - dia + (dia == 0 ? -6 : 1);
+// FUNCIÓN REPARADA: "Escudo" contra Invalid Date
+function obtenerLunes(fechaInput) {
+  let d = new Date(fechaInput);
+  // Si la fecha es inválida (ej. viene mal del Excel), usar hoy para no romper la app
+  if (isNaN(d.getTime())) {
+    d = new Date();
+  }
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const lunes = new Date(d.setDate(diff));
   return lunes.toISOString().split('T')[0];
 }
 
 function formatearFecha(fechaStr) {
+  if (!fechaStr) return "??/??";
   const partes = fechaStr.split('-');
-  return `${partes[2]}/${partes[1]}`;
+  return partes.length > 2 ? `${partes[2]}/${partes[1]}` : "??/??";
 }
 
 function render() {
   const fn = document.getElementById("filtroNombre").value.toLowerCase();
   const fe = document.getElementById("filtroEstado").value;
   const lista = document.getElementById("lista");
-  const filtradas = ventas.filter(v => (!fn || v.cliente.toLowerCase().includes(fn)) && (!fe || v.estado === fe));
+
+  // FILTRO: Excluimos registros de SISTEMA o BODEGA para que no sumen en la Web
+  const filtradas = ventas.filter(v => 
+    (!fn || v.cliente.toLowerCase().includes(fn)) && 
+    (!fe || v.estado === fe) &&
+    !v.cliente.includes("SISTEMA") && 
+    v.estado !== "BODEGA"
+  );
+
   const grupos = {};
   filtradas.forEach(v => {
     const lunes = obtenerLunes(v.fecha);
     if (!grupos[lunes]) grupos[lunes] = [];
     grupos[lunes].push(v);
   });
+  
   const semanasOrdenadas = Object.keys(grupos).sort().reverse();
 
   lista.innerHTML = semanasOrdenadas.map((semana, index) => {
     const grupoVentas = grupos[semana];
     const totalPagado = grupoVentas.reduce((sum, v) => v.estado === "Pagado" ? sum + v.precio : sum, 0);
     const totalPendiente = grupoVentas.reduce((sum, v) => v.estado === "Pendiente" ? sum + v.precio : sum, 0);
+    
     const contador = {};
     grupoVentas.forEach(v => { contador[v.producto] = (contador[v.producto] || 0) + 1; });
     const resumenProd = Object.entries(contador).map(([p, c]) => `${c}x ${p}`).join(" · ");
+    
     const tarjetas = grupoVentas.map(v => `
       <div class="card venta ${v.consumo ? "consumo" : v.estado === "Pagado" ? "pagado" : "pendiente"}">
         <strong>${v.cliente}</strong> <span style="float:right">$${v.precio}</span><br>
@@ -340,9 +362,11 @@ function render() {
         <button class="danger" onclick="borrarVenta('${v.id}')">Borrar</button>
       </div>
     `).join("");
+
     const fechaLunes = new Date(semana + "T12:00:00");
     const fechaSabado = new Date(fechaLunes);
     fechaSabado.setDate(fechaLunes.getDate() + 5);
+
     return `<details ${index === 0 ? "open" : ""}>
       <summary>
         <div class="summary-header">
